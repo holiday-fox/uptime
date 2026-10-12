@@ -18,6 +18,8 @@ jobs:
           # Browser user agent: html/.htaccess on the IB box returns 403 to curl/wget.
           UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36"
           # URL, then the Content-Type it must return. Redirects are followed.
+          # The iCal unit is made up on purpose: the service still runs its DynamoDB
+          # lookup (and 500s if that fails), but no real booking data is fetched.
           CHECKS="
             https://poolfarmcampsite.co.uk/         text/html
             https://whinfellcampsite.co.uk/         text/html
@@ -27,7 +29,7 @@ jobs:
             https://fishpoolfarmcaravanpark.co.uk/  text/html
             https://windunit.com/                   text/html
             https://holidayfox.com/                 text/html
-            https://ical.holidayfox.com/            text/calendar
+            https://ical.holidayfox.com/acctype-uptimecheck/units/accunit-uptimecheck  text/calendar
           "
           failed=0
           while read -r url want; do
