@@ -1,0 +1,49 @@
+name: uptime
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write # keepalive: re-enable this workflow so GitHub's 60-day inactivity rule never switches it off
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check sites
+        run: |
+          # Browser user agent: html/.htaccess on the IB box returns 403 to curl/wget.
+          UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36"
+          SITES="
+            poolfarmcampsite.co.uk
+            whinfellcampsite.co.uk
+            thecampingfield.com
+            orcacampsiterye.co.uk
+            colemanshillcampsite.co.uk
+            fishpoolfarmcaravanpark.co.uk
+          "
+          failed=0
+          for site in $SITES; do
+            # Up to 3 attempts, 20s apart, so one dropped request doesn't page anyone.
+            for attempt in 1 2 3; do
+              code=$(curl -sL -o /dev/null -w "%{http_code}" -A "$UA" --max-time 20 "https://$site/" || true)
+              [ "$code" = "200" ] && break
+              [ "$attempt" -lt 3 ] && sleep 20
+            done
+            if [ "$code" = "200" ]; then
+              echo "OK    $site"
+            else
+              echo "::error::DOWN $site (HTTP $code)"
+              failed=1
+            fi
+          done
+          exit $failed
+
+      - name: Keepalive
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/uptime.yml/enable"
