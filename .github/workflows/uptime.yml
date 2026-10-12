@@ -17,29 +17,35 @@ jobs:
         run: |
           # Browser user agent: html/.htaccess on the IB box returns 403 to curl/wget.
           UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36"
-          SITES="
-            poolfarmcampsite.co.uk
-            whinfellcampsite.co.uk
-            thecampingfield.com
-            orcacampsiterye.co.uk
-            colemanshillcampsite.co.uk
-            fishpoolfarmcaravanpark.co.uk
+          # URL, then the Content-Type it must return. Redirects are followed.
+          CHECKS="
+            https://poolfarmcampsite.co.uk/         text/html
+            https://whinfellcampsite.co.uk/         text/html
+            https://thecampingfield.com/            text/html
+            https://orcacampsiterye.co.uk/          text/html
+            https://colemanshillcampsite.co.uk/     text/html
+            https://fishpoolfarmcaravanpark.co.uk/  text/html
+            https://windunit.com/                   text/html
+            https://holidayfox.com/                 text/html
+            https://ical.holidayfox.com/            text/calendar
           "
           failed=0
-          for site in $SITES; do
+          while read -r url want; do
+            [ -z "$url" ] && continue
             # Up to 3 attempts, 20s apart, so one dropped request doesn't page anyone.
             for attempt in 1 2 3; do
-              code=$(curl -sL -o /dev/null -w "%{http_code}" -A "$UA" --max-time 20 "https://$site/" || true)
-              [ "$code" = "200" ] && break
+              out=$(curl -sL -o /dev/null -w "%{http_code} %{content_type}" -A "$UA" --max-time 20 "$url" || true)
+              code=${out%% *}; type=${out#* }
+              [ "$code" = "200" ] && [ "${type#"$want"}" != "$type" ] && break
               [ "$attempt" -lt 3 ] && sleep 20
             done
-            if [ "$code" = "200" ]; then
-              echo "OK    $site"
+            if [ "$code" = "200" ] && [ "${type#"$want"}" != "$type" ]; then
+              echo "OK    $url"
             else
-              echo "::error::DOWN $site (HTTP $code)"
+              echo "::error::DOWN $url (HTTP $code, $type)"
               failed=1
             fi
-          done
+          done <<< "$CHECKS"
           exit $failed
 
       - name: Keepalive
